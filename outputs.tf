@@ -21,3 +21,8 @@ output "instance_name" {
   value       = aws_instance.aws_vps.tags["Name"] # The "Name" tag of the EC2 instance is retrieved.
   description = "The Name tag of the EC2 instance"
 }
+
+output "aws_key_pair_private_key" {
+  value       = var.aws_key_pair_private_key
+  description = "The public key of the created key pair"
+}
