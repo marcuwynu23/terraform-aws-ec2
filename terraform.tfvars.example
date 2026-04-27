@@ -1,0 +1,9 @@
+create_key_pair         = true
+aws_key_pair_name       = "<ssh-aws-key-pair-name>"
+aws_key_pair_public_key = "./credentials/id_<ssh-aws-public-key>.pub"
+aws_region              = "ap-southeast-1"
+instance_type           = "t2.micro"
+instance_name           = "<instance-name>"
+subnet_id               = "subnet-<id>"
+vpc_id                  = "vpc-<id>"
+is_public_ip            = true
