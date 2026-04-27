@@ -1,86 +1,199 @@
-# Terraform + AWS CLI Guidelines
+# Terraform AWS EC2 Instance Provisioning
 
-## Initialize Terraform
+This Terraform project provisions a single EC2 instance on AWS with optional SSH key pair creation and automatic security group handling.
 
-This command initializes the Terraform working directory, downloads necessary provider plugins, and prepares the environment for running Terraform commands.
+---
+
+## Overview
+
+This configuration creates:
+
+- An EC2 instance
+- A security group allowing SSH access
+- An optional AWS key pair (or uses an existing one)
+- Public IP association (optional)
+
+It is designed for simple VPS-style deployments.
+
+---
+
+## Resources Created
+
+- `aws_instance.aws_vps` – EC2 instance
+- `aws_security_group.allow_ssh` – SSH access security group (if not existing)
+- `aws_key_pair.generated_key` – Optional SSH key pair
+- Data source: `aws_security_group.existing_sg` – Checks if SG already exists
+
+---
+
+## Prerequisites
+
+Ensure the following are installed and configured:
+
+- Terraform >= 1.0
+- AWS CLI configured (`aws configure`)
+- Valid AWS credentials with permissions for EC2, VPC, and IAM (key pairs)
+
+Verify:
+
+```sh
+terraform -v
+aws sts get-caller-identity
+```
+
+---
+
+## File Structure
+
+```
+.
+├── main.tf
+├── variables.tf
+├── outputs.tf
+└── credentials/
+    ├── id_marcuwynu23_aws
+    └── id_marcuwynu23_aws.pub
+```
+
+---
+
+## Variables
+
+Key configurable inputs:
+
+- `aws_region` – AWS region (default: ap-southeast-1)
+- `ami` – AMI ID for EC2 instance
+- `instance_type` – EC2 instance type (default: t2.micro)
+- `instance_name` – Name tag for instance
+- `subnet_id` – Subnet where instance will be deployed
+- `vpc_id` – VPC ID used for security group
+- `is_public_ip` – Whether to assign public IP
+- `create_key_pair` – Whether Terraform creates SSH key pair
+- `aws_key_pair_name` – SSH key pair name
+- `aws_key_pair_public_key` – Path to public key file
+- `aws_key_pair_private_key` – Path to private key file (used for reference only)
+
+---
+
+## Usage
+
+### 1. Initialize Terraform
 
 ```sh
 terraform init
 ```
 
-### plan terraform
+---
 
-This command generates an execution plan, showing the changes Terraform will make to your infrastructure without applying them. It helps to preview the modifications.
+### 2. Validate Configuration
+
+```sh
+terraform validate
+```
+
+---
+
+### 3. Plan Deployment
 
 ```sh
 terraform plan
 ```
 
-### apply terraform
+---
 
-This command applies the Terraform configuration, creating, modifying, or deleting resources according to the defined configuration. The -auto-approve flag automatically confirms the operation without asking for confirmation.
+### 4. Apply Infrastructure
 
 ```sh
- terraform apply  -auto-approve
+terraform apply -auto-approve
 ```
 
-### destroy terraform (optional)
+---
 
-If you want to destroy all the resources managed by your Terraform configuration, use the following command. The -auto-approve flag will automatically confirm the action.
+### 5. Destroy Infrastructure
 
 ```sh
 terraform destroy -auto-approve
 ```
 
-### select images to use based on regions in aws cli
+---
 
-To find available Amazon Machine Images (AMIs) for Amazon Linux 2 in a specific region, use the AWS CLI to describe the images. This example searches for amzn2-ami-hvm-\* in the us-east-1 region.
+## SSH Access
 
-```sh
- aws ec2 describe-images --filters "Name=name,Values=amzn2-ami-hvm-*-x86_64-gp2" --query "Images[*].{ID:ImageId,Name:Name}" --region us-east-1
-```
-
-### select running instances based on regions in aws cli
-
-This AWS CLI command will return information about running EC2 instances in a specific region (us-east-2 in this case), including their Instance ID, Type, State, and Public IP address.
+After deployment, connect to the EC2 instance:
 
 ```sh
-aws ec2 describe-instances --query "Reservations[*].Instances[*].[InstanceId,InstanceType,State.Name,PublicIpAddress]" --region us-east-2
+ssh -i <private_key_file> ubuntu@<public_ip>
 ```
 
-### create ssh key pair
-
-To implement security for SSH connections to your EC2 instance, you can create a new SSH key pair using the following command. The -t ed25519 option specifies the creation of an Ed25519 key, which is more secure and recommended over RSA.
+Or for Amazon Linux:
 
 ```sh
- ssh-keygen -t ed25519 -f <ssh_file>
+ssh -i <private_key_file> ec2-user@<public_ip>
 ```
 
-### filter out public ip address that can be use as ssh host using terraform output + jq
+---
 
-To extract the public IP address of an EC2 instance from Terraform output and use it for SSH, pipe the JSON output to jq for filtering:
+## Outputs
+
+After apply, Terraform provides:
+
+- `instance_public_ip` – Public IP of EC2 instance
+- `instance_id` – EC2 instance ID
+- `instance_name` – Instance Name tag
+- `aws_key_pair_private_key` – Path to private key file (reference only)
+
+---
+
+## Security Considerations
+
+- SSH access is currently open to `0.0.0.0/0` (not production-safe)
+- Recommended to restrict SSH access to your IP only:
+
+```hcl
+cidr_blocks = ["YOUR_IP/32"]
+```
+
+- Store private keys securely and never commit them to version control
+
+---
+
+## Notes
+
+- If `create_key_pair = false`, Terraform uses an existing key pair
+- Security group lookup assumes `allow_ssh` exists or will be created
+- AMI IDs are region-specific and must be updated accordingly
+
+---
+
+## Common Issues
+
+### Instance not reachable
+
+- Check security group inbound rules (port 22)
+- Ensure correct key pair is used
+- Verify subnet has internet gateway routing
+
+### Invalid AMI
+
+- AMI IDs differ per region; update `ami` variable
+
+---
+
+## Cleanup
+
+To remove all resources:
 
 ```sh
-terraform output -json | jq -r ".instance_public_ip.value"
+terraform destroy -auto-approve
 ```
 
-This command will return the public IP address of the EC2 instance in the output variable instance_public_ip.
+---
 
-### Common Default Usernames for Popular AMIs:
+## Summary
 
-When SSHing into an EC2 instance, the default username depends on the operating system (AMI) used. Here’s a list of common default usernames for popular AMIs:
+This Terraform setup provides a minimal but flexible EC2 provisioning system with:
 
-- **Amazon Linux 2 or Amazon Linux AMI**:  
-  **Username**: `ec2-user`
-- **Ubuntu**:  
-  **Username**: `ubuntu`
-- **CentOS**:  
-  **Username**: `centos`
-- **Debian**:  
-  **Username**: `admin` or `debian`
-- **Red Hat Enterprise Linux (RHEL)**:  
-  **Username**: `ec2-user`
-- **Fedora**:  
-  **Username**: `fedora`
-- **Windows Server** (via RDP, not SSH):  
-  **Username**: `Administrator` (for RDP, not SSH)
+- Optional SSH key generation
+- Reusable security group logic
+- Public IP access
+- Configurable infrastructure variables
