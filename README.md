@@ -144,6 +144,36 @@ After apply, Terraform provides:
 
 ---
 
+## Usage as a Module
+
+Reference this repository as a Terraform module in your own configurations:
+
+```hcl
+module "ec2_instance" {
+  source = "github.com/marcuwynu23/terraform-aws-ec2?ref=main"
+
+  aws_region    = "ap-southeast-1"
+  ami           = "ami-002fa10fbb7594252"
+  instance_type = "t2.micro"
+  instance_name = "my-app-vm"
+  subnet_id     = "subnet-xxx"
+  vpc_id        = "vpc-xxx"
+}
+```
+
+Then use the outputs in your configuration:
+
+```hcl
+# Example: pass the public IP to a DNS record
+output "ec2_ip" {
+  value = module.ec2_instance.instance_public_ip
+}
+```
+
+All variables and outputs documented above are available when using this as a module.
+
+---
+
 ## Security Considerations
 
 - SSH access is currently open to `0.0.0.0/0` (not production-safe)
