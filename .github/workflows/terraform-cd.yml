@@ -1,0 +1,90 @@
+name: CD - AWS EC2 (Apply / Destroy)
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: Terraform operation
+        required: true
+        type: choice
+        options:
+          - apply
+          - destroy
+        default: apply
+      create_key_pair:
+        description: Set to true if you want Terraform to create a key pair
+        required: true
+        type: boolean
+        default: false
+      aws_key_pair_name:
+        description: Name of the SSH key pair
+        required: true
+        type: string
+        default: marcuwynu23-aws
+      aws_region:
+        description: AWS region to deploy resources
+        required: true
+        type: string
+        default: ap-southeast-1
+      instance_type:
+        description: EC2 instance type
+        required: true
+        type: string
+        default: t2.micro
+      instance_name:
+        description: Name of the EC2 instance
+        required: true
+        type: string
+        default: AwsVps
+      subnet_id:
+        description: Subnet ID
+        required: true
+        type: string
+      vpc_id:
+        description: VPC ID
+        required: true
+        type: string
+      is_public_ip:
+        description: Assign a public IP to the instance
+        required: true
+        type: boolean
+        default: true
+
+env:
+  TF_VAR_aws_key_pair_public_key: ${{ secrets.AWS_KEY_PAIR_PUBLIC_KEY }}
+
+jobs:
+  provision:
+    name: Terraform ${{ github.event.inputs.command }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
+      - name: Terraform Init
+        run: terraform init
+      - name: Terraform Plan
+        run: |
+          terraform plan ${{ github.event.inputs.command == 'destroy' && '-destroy' || '' }} \
+            -var="create_key_pair=${{ github.event.inputs.create_key_pair }}" \
+            -var="aws_key_pair_name=${{ github.event.inputs.aws_key_pair_name }}" \
+            -var="aws_region=${{ github.event.inputs.aws_region }}" \
+            -var="instance_type=${{ github.event.inputs.instance_type }}" \
+            -var="instance_name=${{ github.event.inputs.instance_name }}" \
+            -var="subnet_id=${{ github.event.inputs.subnet_id }}" \
+            -var="vpc_id=${{ github.event.inputs.vpc_id }}" \
+            -var="is_public_ip=${{ github.event.inputs.is_public_ip }}"
+      - name: Terraform Apply / Destroy
+        run: |
+          terraform ${{ github.event.inputs.command }} -auto-approve \
+            -var="create_key_pair=${{ github.event.inputs.create_key_pair }}" \
+            -var="aws_key_pair_name=${{ github.event.inputs.aws_key_pair_name }}" \
+            -var="aws_region=${{ github.event.inputs.aws_region }}" \
+            -var="instance_type=${{ github.event.inputs.instance_type }}" \
+            -var="instance_name=${{ github.event.inputs.instance_name }}" \
+            -var="subnet_id=${{ github.event.inputs.subnet_id }}" \
+            -var="vpc_id=${{ github.event.inputs.vpc_id }}" \
+            -var="is_public_ip=${{ github.event.inputs.is_public_ip }}"
