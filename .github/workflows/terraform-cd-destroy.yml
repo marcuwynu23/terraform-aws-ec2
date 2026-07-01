@@ -1,0 +1,130 @@
+name: CD - AWS EC2 (Destroy)
+
+on:
+  workflow_dispatch:
+    inputs:
+
+      aws_region:
+        description: AWS region to deploy resources
+        required: true
+        type: string
+        default: ap-southeast-1
+
+      ami:
+        description: AMI ID for the EC2 instance
+        required: true
+        type: string
+        default: ami-002fa10fbb7594252
+
+      instance_type:
+        description: EC2 instance type
+        required: true
+        type: string
+        default: t2.micro
+
+      instance_name:
+        description: Name of the EC2 instance
+        required: true
+        type: string
+        default: AwsVps
+
+      subnet_id:
+        description: Subnet ID
+        required: true
+        type: string
+        default: subnet-032b8e5de17263651
+
+      vpc_id:
+        description: VPC ID
+        required: true
+        type: string
+        default: vpc-0d541ad12136d30be
+
+      is_public_ip:
+        description: Assign a public IP to the instance
+        required: true
+        type: boolean
+        default: true
+
+      create_key_pair:
+        description: Set to true if you want Terraform to create a key pair
+        required: true
+        type: boolean
+        default: false
+
+      aws_key_pair_name:
+        description: Name of the SSH key pair
+        required: true
+        type: string
+        default: marcuwynu23-aws
+
+      aws_key_pair_public_key:
+        description: Path to the existing public key file
+        required: true
+        type: string
+        default: ./credentials/id_marcuwynu23_aws.pub
+
+      aws_key_pair_private_key:
+        description: Path to the existing private key file
+        required: true
+        type: string
+        default: ./credentials/id_marcuwynu23_aws
+
+env:
+  TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+  TF_STATE_REGION: ${{ secrets.TF_STATE_REGION }}
+  TF_STATE_LOCK_TABLE: ${{ secrets.TF_STATE_LOCK_TABLE }}
+
+jobs:
+  destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.TF_STATE_REGION }}
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: latest
+    - name: Terraform Init
+      run: |
+        terraform init \
+          -backend-config="bucket=$TF_STATE_BUCKET" \
+          -backend-config="key=ec2/terraform.tfstate" \
+          -backend-config="region=$TF_STATE_REGION" \
+          -backend-config="dynamodb_table=$TF_STATE_LOCK_TABLE" \
+          -backend-config="encrypt=true"
+    - name: Terraform Plan
+      run: |
+        terraform plan -destroy \
+          -var="aws_region=${{ github.event.inputs.aws_region }}" \
+          -var="ami=${{ github.event.inputs.ami }}" \
+          -var="instance_type=${{ github.event.inputs.instance_type }}" \
+          -var="instance_name=${{ github.event.inputs.instance_name }}" \
+          -var="subnet_id=${{ github.event.inputs.subnet_id }}" \
+          -var="vpc_id=${{ github.event.inputs.vpc_id }}" \
+          -var="is_public_ip=${{ github.event.inputs.is_public_ip }}" \
+          -var="create_key_pair=${{ github.event.inputs.create_key_pair }}" \
+          -var="aws_key_pair_name=${{ github.event.inputs.aws_key_pair_name }}" \
+          -var="aws_key_pair_public_key=${{ github.event.inputs.aws_key_pair_public_key }}" \
+          -var="aws_key_pair_private_key=${{ github.event.inputs.aws_key_pair_private_key }}"
+    - name: Terraform Destroy
+      run: |
+        terraform destroy -auto-approve \
+          -var="aws_region=${{ github.event.inputs.aws_region }}" \
+          -var="ami=${{ github.event.inputs.ami }}" \
+          -var="instance_type=${{ github.event.inputs.instance_type }}" \
+          -var="instance_name=${{ github.event.inputs.instance_name }}" \
+          -var="subnet_id=${{ github.event.inputs.subnet_id }}" \
+          -var="vpc_id=${{ github.event.inputs.vpc_id }}" \
+          -var="is_public_ip=${{ github.event.inputs.is_public_ip }}" \
+          -var="create_key_pair=${{ github.event.inputs.create_key_pair }}" \
+          -var="aws_key_pair_name=${{ github.event.inputs.aws_key_pair_name }}" \
+          -var="aws_key_pair_public_key=${{ github.event.inputs.aws_key_pair_public_key }}" \
+          -var="aws_key_pair_private_key=${{ github.event.inputs.aws_key_pair_private_key }}"
